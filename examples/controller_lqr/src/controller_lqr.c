@@ -77,6 +77,7 @@ static float control_input[NU];
 // Struct for logging position information
 static bool isInit = false;
 
+
 void controllerOutOfTreeInit(void) {
   if (isInit) {
     return;
