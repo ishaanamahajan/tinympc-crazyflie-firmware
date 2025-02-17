@@ -84,11 +84,12 @@ void updateHorizonReference(const setpoint_t *setpoint);
 // Add these declarations after other global variables
 //static float u_hover[4] = {0.6641f, 0.6246f, 0.7216f, 0.5756f};  // cf1
 
-//static float u_hover[4] = {0.7479f, 0.6682f, 0.78f, 0.67f};  // cf1 values
+static float u_hover[4] = {0.7479f, 0.6682f, 0.78f, 0.67f};  // cf1 values
 
 //all 0.7
-static float u_hover[4] = {0.92f, 0.32f, 0.32f, 0.92f};
+//static float u_hover[4] = {0.945f, 0.345f, 0.345f, 0.945f};
 
+//static float u_hover[4] = {0.65f, 0.65f, 0.65f, 0.65f};  // Equal values to start
 
 // Create TinyMPC struct
 static tiny_Model model;
@@ -117,100 +118,7 @@ static VectorMf Qu;
 static VectorMf ZU[NHORIZON-1]; 
 static VectorMf ZU_new[NHORIZON-1];
 
-// void appMain() {
-//     DEBUG_PRINT("TinyMPC app starting...\n");
-    
-//     // Initialize the controller
-//     controllerOutOfTreeInit();
-    //static float u_hover[4] = {0.7479f, 0.6682f, 0.78f, 0.67f};  // cf1 values  // 1 meter
-//     bool takeoff_complete = false;
 
-//      // Enable motors with debug prints
-//     DEBUG_PRINT("Initializing power distribution...\n");
-//     powerDistributionInit();    
-    
-              
-    
-//     vTaskDelay(M2T(100));     
-    
-//     DEBUG_PRINT("Initializing motors...\n");
-//     motorsInit(motorMapDefaultBrushed);             
-    
-//     DEBUG_PRINT("Power initialization complete\n");
-    
-    
-    
-//     // // Set initial PWM values for hover
-//     // control.normalizedForces[0] = 0.6641f;  // These values from your hover settings
-//     // control.normalizedForces[1] = 0.6246f;
-//     // control.normalizedForces[2] = 0.7216f;
-//     // control.normalizedForces[3] = 0.5756f;
-//     // control.controlMode = controlModePWM;
-
-//     // Set initial PWM values for hover
-//     control.normalizedForces[0] = u_hover[0];
-//     control.normalizedForces[1] = u_hover[1];
-//     control.normalizedForces[2] = u_hover[2];
-//     control.normalizedForces[3] = u_hover[3];
-//     control.controlMode = controlModePWM;
-
-//     motorsSetRatio(MOTOR_M1, (uint16_t)(control.normalizedForces[0] * 65535));
-//     motorsSetRatio(MOTOR_M2, (uint16_t)(control.normalizedForces[1] * 65535));
-//     motorsSetRatio(MOTOR_M3, (uint16_t)(control.normalizedForces[2] * 65535));
-//     motorsSetRatio(MOTOR_M4, (uint16_t)(control.normalizedForces[3] * 65535));
-    
-//     while(1) {static float u_hover[4] = {0.8f, 0.2f, 0.2f, 0.8f};
-//         if (!takeoff_complete) {
-//             DEBUG_PRINT("Taking off to %.1f meters...\n", (double)initial_height);
-//             // Set initial hover point
-//             xg(0) = 0.0f;  // x
-//             xg(1) = 0.0f;  // y
-//             xg(2) = initial_height;  // z
-//             takeoff_complete = true;
-//             en_traj = true;  // Start trajectory after takeoff
-//         }
-
-//         //updateInitialState(&sensors, &state);
-
-//         // Let's start with just hover values to verify motors work
-//         control.normalizedForces[0] = u_hover[0];
-//         control.normalizedForces[1] = u_hover[1];
-//         control.normalizedForces[2] = u_hover[2];
-//         control.normalizedForces[3] = u_hover[3];
-
-        
-//         // // Update control values based on MPC
-//         // if (en_traj) {
-//         //     // Call MPC update function
-//         //     updateHorizonReference(&setpoint);
-//         //     tiny_UpdateLinearCost(&work);
-//         //     tiny_SolveAdmm(&work);
-            
-//         //     // Update PWM values from MPC solution
-//         //     control.normalizedForces[0] = ZU_new[0](0) + u_hover[0];
-//         //     control.normalizedForces[1] = ZU_new[0](1) + u_hover[1];
-//         //     control.normalizedForcestatic float u_hover[4] = {0.8f, 0.2f, 0.2f, 0.8f};s[2] = ZU_new[0](2) + u_hover[2];
-//         //     control.normalizedForces[3] = ZU_new[0](3) + u_hover[3];
-//         // }
-
-//         // // controllerOutOfTree(&control, &setpoint, &sensors, &state, tick);
-//         // // tick++;
-
-//         // step++;
-        
-        
-//         DEBUG_PRINT("Status: Step=%lu, Traj=%d, Pos=[%.2f, %.2f, %.2f]\n", 
-//                    (unsigned long)step, en_traj, 
-//                    (double)x0(0), (double)x0(1), (double)x0(2));
-//         DEBUG_PRINT("PWM values: [%.2f, %.2f, %.2f, %.2f]\n",
-//                    (double)control.normalizedForces[0],
-//                    (double)control.normalizedForces[1], 
-//                    (double)control.normalizedForces[2],
-//                    (double)control.normalizedForces[3]);
-        
-//         vTaskDelay(M2T(2000));
-//     }
-// }
 
 void appMain() {
     DEBUG_PRINT("TinyMPC app starting...\n");
@@ -226,8 +134,14 @@ void appMain() {
     motorsInit(motorMapDefaultBrushed);             
     DEBUG_PRINT("Power initialization complete\n");
     
-    const uint32_t TIMEOUT_MS = 3000; // 5 seconds
+    const uint32_t TIMEOUT_MS = 5000; // 5 seconds
     uint32_t startTime = xTaskGetTickCount();
+
+    // Set initial goal state (hover point)
+    xg(0) = 0.0f;  // x position
+    xg(1) = 0.0f;  // y position
+    xg(2) = 5.0f;  // z position (1 meter height)
+    en_traj = false;  // Enable trajectory tracking
     
     while(1) {
         // Check timeout
@@ -247,10 +161,10 @@ void appMain() {
         tiny_SolveAdmm(&work);
         
         // Apply MPC solution
-        motorsSetRatio(MOTOR_M1, (uint16_t)((ZU_new[0](0) * 0.01 + u_hover[0]) * 65535));
-        motorsSetRatio(MOTOR_M2, (uint16_t)((ZU_new[0](1) * 0.01 + u_hover[1]) * 65535));
-        motorsSetRatio(MOTOR_M3, (uint16_t)((ZU_new[0](2) * 0.01 + u_hover[2]) * 65535));
-        motorsSetRatio(MOTOR_M4, (uint16_t)((ZU_new[0](3) * 0.01 + u_hover[3]) * 65535));
+        motorsSetRatio(MOTOR_M1, (uint16_t)((ZU_new[0](0) + u_hover[0]) * 65535));
+        motorsSetRatio(MOTOR_M2, (uint16_t)((ZU_new[0](1)  + u_hover[1]) * 65535));
+        motorsSetRatio(MOTOR_M3, (uint16_t)((ZU_new[0](2)  + u_hover[2]) * 65535));
+        motorsSetRatio(MOTOR_M4, (uint16_t)((ZU_new[0](3) + u_hover[3]) * 65535));
 
         // // Apply MPC solution with reduced gains and reordered motors
         // motorsSetRatio(MOTOR_M1, (uint16_t)((ZU_new[0](3) * 0.5 + u_hover[0]) * 65535));  // Changed index
@@ -365,7 +279,7 @@ static uint32_t mpcTime = 0;
 static int8_t result = 0;
 static uint32_t traj_length = T_ARRAY_SIZE(X_ref_data);
 static int8_t user_traj_iter = 1;  // number of times to execute full trajectory
-static int8_t traj_hold = 3;       // hold current trajectory for this no of steps
+static int8_t traj_hold = 1;       // hold current trajectory for this no of steps
 static int8_t traj_iter = 0;
 static uint32_t traj_idx = 0;
 
