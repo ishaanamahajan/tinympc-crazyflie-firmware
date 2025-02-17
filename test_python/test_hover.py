@@ -3,6 +3,7 @@ import cflib.crtp
 from cflib.crazyflie import Crazyflie
 from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
 from cflib.utils import uri_helper
+from cflib.crazyflie.high_level_commander import HighLevelCommander
 
 # URI to the Crazyflie to connect to
 URI = uri_helper.uri_from_env(default='radio://0/80/2M/E7E7E7E7E7')
@@ -13,30 +14,45 @@ def main():
 
     with SyncCrazyflie(URI, cf=Crazyflie()) as scf:
         cf = scf.cf
+        hlcommander = HighLevelCommander(cf)  # Create high-level commander
         
-        print("Setting up TinyMPC controller...")
-        # Switch to TinyMPC controller
+        # PID setup (1 second)
+        print("Setting up PID controller...")
+        cf.param.set_value('stabilizer.controller', '1')
+        time.sleep(1)
+
+        # Takeoff (2.1 seconds)
+        print("Taking off with PID...")
+        hlcommander.takeoff(1.0, 2.0)  # Use high-level commander
+        time.sleep(2.1)
+        
+        # Go to hover position (2 seconds)
+        print("Going to hover position...")
+        hlcommander.go_to(0, 0, 1.0, 0, 2.0)  # Use high-level commander
+        time.sleep(2.0)
+
+        # Switch to TinyMPC and hold (7 seconds)
+        print("Switching to TinyMPC controller...")
         cf.param.set_value('stabilizer.controller', '5')
-        time.sleep(2)  # Give more time to initialize
-        print("Controller set to TinyMPC")
+        time.sleep(2.0)
+        print("Holding with TinyMPC...")
+        time.sleep(5.0)
 
-        print("Taking off...")
-        for y in range(10):
-            cf.commander.send_hover_setpoint(0, 0, 0, y / 25)
-            print(f"Height setpoint: {y/25}")
-            time.sleep(0.2)  # Slower takeoff
+        # Switch back to PID (1 second)
+        print("Switching back to PID for landing...")
+        cf.param.set_value('stabilizer.controller', '1')
+        time.sleep(1.0)
 
-        print("Hovering...")
-        for _ in range(50):  # Longer hover time
-            cf.commander.send_hover_setpoint(0, 0, 0, 0.4)
-            time.sleep(0.1)
-
+        # Landing sequence (4 seconds)
         print("Landing...")
-        for y in range(10):
-            cf.commander.send_hover_setpoint(0, 0, 0, (10-y) / 25)
-            time.sleep(0.2)  # Slower landing
+        hlcommander.go_to(0, 0, 0.1, 0, 2.0)  # Use high-level commander
+        time.sleep(2.0)
+        hlcommander.land(0.0, 2.0)  # Use high-level commander
+        time.sleep(2.0)
 
+        print("Stopping motors...")
         cf.commander.send_stop_setpoint()
+        print("Flight test complete!")
 
 if __name__ == '__main__':
     main()
