@@ -9,14 +9,6 @@ from cflib.crazyflie.high_level_commander import HighLevelCommander
 # URI to the Crazyflie to connect to
 URI = uri_helper.uri_from_env(default='radio://0/80/2M/E7E7E7E7E7')
 
-def reset_estimator(scf):
-    print("Resetting estimator...")
-    cf = scf.cf
-    cf.param.set_value('kalman.resetEstimation', '1')
-    time.sleep(0.1)
-    cf.param.set_value('kalman.resetEstimation', '0')
-    time.sleep(2.0)
-
 def main():
     print("Initializing drivers...")
     cflib.crtp.init_drivers()
@@ -25,7 +17,7 @@ def main():
         cf = scf.cf
         hlc = HighLevelCommander(cf)
 
-        # Set up logging - Split into two configs
+        # Set up logging
         lg_state = LogConfig(name='State', period_in_ms=100)
         lg_state.add_variable('stabilizer.roll', 'float')
         lg_state.add_variable('stabilizer.pitch', 'float')
@@ -46,7 +38,6 @@ def main():
             print(f"Motors: {data['motor.m1']} {data['motor.m2']} "
                   f"{data['motor.m3']} {data['motor.m4']}")
 
-        # Start both logging configurations
         cf.log.add_config(lg_state)
         cf.log.add_config(lg_motors)
         lg_state.data_received_cb.add_callback(log_state_callback)
@@ -54,26 +45,31 @@ def main():
         lg_state.start()
         lg_motors.start()
 
-        # Reset estimator first
-        reset_estimator(scf)
+        try:
+            # Force PID controller
+            print("\nSetting PID controller...")
+            cf.param.set_value('stabilizer.controller', '1')
+            time.sleep(1.0)
 
-        # Very conservative test flight
-        print("\nSetting PID controller...")
-        cf.param.set_value('stabilizer.controller', '1')
-        time.sleep(1.0)
+            # Simple takeoff and land sequence
+            print("Taking off with PID...")
+            hlc.takeoff(0.2, 3.0)  # 20cm height, 3s duration
+            time.sleep(3.5)
 
-        print("Taking off very slowly...")
-        hlc.takeoff(0.2, 3.0)  # Only 20cm height, 3s duration
-        time.sleep(3.5)
+            print("Holding position...")
+            time.sleep(2.0)
 
-        print("Holding position...")
-        time.sleep(3.0)
+            print("Landing...")
+            hlc.land(0.0, 2.0)
+            time.sleep(2.0)
 
-        print("Landing...")
-        hlc.land(0.0, 2.0)
-        time.sleep(2.0)
+            print("Test complete!")
 
-        print("Flight test complete!")
+        except Exception as e:
+            print(f"\nError: {str(e)}")
+            print("Emergency landing...")
+            cf.commander.send_setpoint(0, 0, 0, 0)
+            time.sleep(0.1)
 
 if __name__ == '__main__':
     main()
