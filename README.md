@@ -1,3 +1,14 @@
+#CFCLIENT VALS = state-estimate - 
+thurst 70% 
+X = -.81
+Y = -3.37
+Z = 0.52
+Putch = 0.36
+Roll = 0.88
+Yaw = 2.87
+
+and in bar chart thrust was 0, and M1 M2 M3 and M4 were 76, 73. 35, 57 %
+
 # Crazyflie Firmware  [![CI](https://github.com/bitcraze/crazyflie-firmware/workflows/CI/badge.svg)](https://github.com/bitcraze/crazyflie-firmware/actions?query=workflow%3ACI)
 
 This repo contains the source code for the TinyMPC-integrated firmware used in the Crazyflie 2.1. TinyMPC is publicly available at [tinympc.org](https://tinympc.org/).
