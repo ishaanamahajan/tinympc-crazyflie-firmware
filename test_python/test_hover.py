@@ -8,6 +8,22 @@ from cflib.crazyflie.log import LogConfig
 # URI to the Crazyflie to connect to
 URI = uri_helper.uri_from_env(default='radio://0/80/2M/E7E7E7E7E7')
 
+def verify_tinympc_available(cf):
+    try:
+        # Check if CONTROLLER_TINYMPC is enabled in the build
+        tinympc_enabled = cf.param.get_value('controller.tinympc')
+        # Check if controller type 5 (TinyMPC) is available
+        controller_types = cf.param.get_value('stabilizer.controller_types')
+        
+        print(f"TinyMPC build configuration: {'Enabled' if tinympc_enabled else 'Disabled'}")
+        print(f"Available controller types: {controller_types}")
+        
+        # Verify both conditions are met
+        return bool(tinympc_enabled) and '5' in str(controller_types)
+    except Exception as e:
+        print(f"Could not verify TinyMPC availability: {e}")
+        return False
+
 def main():
     print("Initializing drivers...")
     cflib.crtp.init_drivers()
@@ -59,11 +75,19 @@ def main():
             cf.commander.send_hover_setpoint(0, 0, 0, 0.8)
             time.sleep(1.0)
 
+        # Before switching to TinyMPC
+        if not verify_tinympc_available(cf):
+            print("WARNING: TinyMPC might not be available in this firmware build!")
+        
         # Switch to TinyMPC
         print("\nSwitching to TinyMPC controller...")
         cf.param.set_value('stabilizer.controller', '5')
         time.sleep(1.0)
-        print("Controller now:", cf.param.get_value('stabilizer.controller'))
+        
+        # Verify the switch actually happened
+        controller = cf.param.get_value('stabilizer.controller')
+        if controller != 5:
+            print(f"WARNING: Failed to switch to TinyMPC! Controller is still: {controller}")
         
         # Hold with TinyMPC
         print("Holding with TinyMPC...")
