@@ -1,6 +1,6 @@
 config DECK_ACTIVE_MARKER
     bool "Support the Active marker deck"
-    default n
+    default y
     help
         The Active marker deck together with Qualisys QTM gives you long
         distance and solid tracking. Thanks to the 4 high-power LEDs you
