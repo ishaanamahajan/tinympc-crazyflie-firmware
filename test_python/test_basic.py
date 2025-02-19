@@ -20,17 +20,32 @@ def simple_hover():
         # Set up height logging
         lg_state = LogConfig(name='State', period_in_ms=100)
         lg_state.add_variable('stateEstimate.z', 'float')
+        lg_state.add_variable('stabilizer.thrust', 'float')
+        lg_state.add_variable('stabilizer.roll', 'float')
+        lg_state.add_variable('stabilizer.pitch', 'float')
+        lg_state.add_variable('stabilizer.yaw', 'float')
 
         def log_state_callback(timestamp, data, logconf):
             nonlocal initial_height
             current_height = data['stateEstimate.z']
+            current_roll = data['stabilizer.roll']
+            current_pitch = data['stabilizer.pitch']
+            current_yaw = data['stabilizer.yaw']
             
             if initial_height is None:
                 initial_height = current_height
                 print(f"Initial height set to: {initial_height:.2f}m")
             
             relative_height = current_height - initial_height
-            print(f"Relative height: {relative_height:.2f}m")
+            thrust = data.get('stabilizer.thrust', 0)
+            print(f"Relative height: {relative_height:.2f}m, Thrust: {thrust}, Roll: {current_roll:.2f}, Pitch: {current_pitch:.2f}, Yaw: {current_yaw:.2f}") 
+
+
+            # # Emergency stop if too high
+            # if abs(relative_height) > 0.60:
+            #     print(f"EMERGENCY STOP - Height {relative_height:.2f}m exceeded limit {max_height}m")
+            #     cf.commander.send_stop_setpoint()
+            #     return
 
         cf.log.add_config(lg_state)
         lg_state.data_received_cb.add_callback(log_state_callback)
@@ -52,12 +67,31 @@ def simple_hover():
         cf.param.set_value('stabilizer.controller', '1')
         time.sleep(0.1)
 
-        # Super simple: just try to hover 3cm above initial height
+        # Super simple: just try to hover 3cm above ground
         print("Attempting hover...")
         target_height = 0.03  # 3cm
-        for _ in range(50):  # 5 seconds
-            cf.commander.send_hover_setpoint(0, 0, 0, initial_height )
+        for _ in range(20):  # 5 seconds
+            cf.commander.send_hover_setpoint(0, 0, 0, target_height)  # Just use target_height
             time.sleep(0.1)
+
+        # Switch to TinyMPC for stabilization
+        print("Switching to TinyMPC for stabilization...")
+        cf.param.set_value('stabilizer.controller', '5')  # Switch to TinyMPC
+        time.sleep(0.1)
+
+        # cf.param.set_value('ctrlMPC.trajLength', '10') 
+        # cf.param.set_value('ctrlMPC.stgs_max_iter', '20')  # Max iterations per step
+
+        # Hold with TinyMPC
+        print("Holding with TinyMPC...")
+        for _ in range(30):  # 3 seconds
+            cf.commander.send_hover_setpoint(0, 0, 0, target_height)
+            time.sleep(0.1)
+
+        # Switch back to PID for landing
+        print("Switching to PID for landing...")
+        cf.param.set_value('stabilizer.controller', '1')
+        time.sleep(0.1)
 
         # Land
         print("Landing...")
@@ -65,6 +99,92 @@ def simple_hover():
 
 if __name__ == '__main__':
     simple_hover()
+
+
+# import logging
+# import time
+# import cflib.crtp
+# from cflib.crazyflie import Crazyflie
+# from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
+# from cflib.utils import uri_helper
+# from cflib.crazyflie.log import LogConfig
+
+# URI = uri_helper.uri_from_env(default='radio://0/80/2M/E7E7E7E7E7')
+
+# def simple_hover():
+#     cflib.crtp.init_drivers()
+
+#     with SyncCrazyflie(URI, cf=Crazyflie()) as scf:
+#         cf = scf.cf
+
+#         # Store initial height
+#         initial_height = None
+
+#         # Set up height logging
+#         lg_state = LogConfig(name='State', period_in_ms=100)
+#         lg_state.add_variable('stateEstimate.z', 'float')
+#         lg_state.add_variable('stabilizer.pitch', 'float')
+#         lg_state.add_variable('stabilizer.roll', 'float')
+#         lg_state.add_variable('stabilizer.yaw', 'float')
+
+#         def log_state_callback(timestamp, data, logconf):
+#             nonlocal initial_height
+#             current_height = data['stateEstimate.z']
+#             current_pitch = data['stabilizer.pitch']
+#             current_roll = data['stabilizer.roll']
+#             current_yaw = data['stabilizer.yaw']
+            
+#             if initial_height is None:
+#                 initial_height = current_height
+#                 print(f"Initial height set to: {initial_height:.2f}m")
+            
+#             relative_height = current_height - initial_height
+#             print(f"Relative height: {relative_height:.2f}m, Pitch: {current_pitch:.2f}, Roll: {current_roll:.2f}, Yaw: {current_yaw:.2f}")
+
+#         cf.log.add_config(lg_state)
+#         lg_state.data_received_cb.add_callback(log_state_callback)
+#         lg_state.start()
+
+#         # Wait to get initial height
+#         print("Getting initial height...")
+#         time.sleep(2.0)
+
+#         # Reset estimator
+#         print("Resetting estimator...")
+#         cf.param.set_value('kalman.initialZ', '0.0')
+#         cf.param.set_value('kalman.resetEstimation', '1')
+#         time.sleep(0.1)
+#         cf.param.set_value('kalman.resetEstimation', '0')
+#         time.sleep(2.0)
+
+#         # Just PID controller
+#         cf.param.set_value('stabilizer.controller', '1')
+#         time.sleep(0.1)
+
+#         # Define target height
+#         target_height = 0.03  # 3cm
+#         STEPS = 50 # Number of steps for smooth takeoff
+
+#         # First loop - Gradual takeoff
+#         print("Taking off...")
+#         for y in range(STEPS):
+#             height = (y / STEPS) * target_height
+#             print(f"Takeoff height: {height:.2f}m")
+#             cf.commander.send_hover_setpoint(0, 0, 0, height)
+#             time.sleep(0.5)  # Slower for stability
+
+#         # Second loop - Hold position
+#         print("Holding position...")
+#         for _ in range(30):  # 3 seconds hover
+#             cf.commander.send_hover_setpoint(0, 0, 0, target_height)
+#             time.sleep(0.1)
+
+#         # Land
+#         print("Landing...")
+#         cf.commander.send_stop_setpoint()
+
+# if __name__ == '__main__':
+#     simple_hover()
 
 
 # """
