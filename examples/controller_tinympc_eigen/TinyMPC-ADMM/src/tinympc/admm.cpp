@@ -1,4 +1,8 @@
+#include <iostream>
+#include <algorithm>
 #include "admm.h"
+#include "rho_benchmark.h"
+#include "types.h"
 
 # ifdef __cplusplus
 extern "C" {
@@ -13,6 +17,16 @@ enum tiny_ErrorCode tiny_SolveAdmm(tiny_AdmmWorkspace* work) {
     tiny_SolveLqr(work);
     return TINY_NO_ERROR;
   }
+
+  // Initialize RhoAdapter
+  RhoAdapter adapter;
+  adapter.rho_min = 0.1f;
+  adapter.rho_max = 10.0f;
+  adapter.clip = true;
+  adapter.tolerance = 1e-3f;
+  adapter.nx = work->data->model[0].nstates;  // Set number of states
+  adapter.nu = work->data->model[0].ninputs;  // Set number of inputs
+
 
   int N = work->data->model[0].nhorizon;
   int exitflag;
@@ -51,6 +65,30 @@ enum tiny_ErrorCode tiny_SolveAdmm(tiny_AdmmWorkspace* work) {
 
     /* Update for next primal solve */
     tiny_UpdateConstrainedLinearCost(work);
+
+     // Update rho every 5 iterations
+    if (iter > 1 && iter % 5 == 0) {
+      RhoBenchmarkResult rho_result;
+      
+      // Use existing residuals from work->info
+      benchmark_rho_adaptation(
+          work->soln->X[0].data(),
+          work->soln->U[0].data(),
+          work->ZU_new[0].data(),
+          work->info->pri_res,
+          work->info->dua_res,
+          &rho_result,
+          &adapter,
+          work->rho
+      );
+      
+      // Update rho if change is significant
+      if (std::abs(rho_result.final_rho - work->rho) > adapter.tolerance) {
+          float old_rho = work->rho;
+          work->rho = rho_result.final_rho;
+          update_cache_taylor(work->rho, old_rho);
+      }
+    }
 
     /* End of ADMM STEPS */
     // Can we check for termination ?
