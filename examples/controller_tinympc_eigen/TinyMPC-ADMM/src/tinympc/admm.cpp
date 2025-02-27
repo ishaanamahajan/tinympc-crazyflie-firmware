@@ -21,7 +21,7 @@ enum tiny_ErrorCode tiny_SolveAdmm(tiny_AdmmWorkspace* work) {
   // Initialize RhoAdapter
   RhoAdapter adapter;
   adapter.rho_min = 0.1f;
-  adapter.rho_max = 10.0f;
+  adapter.rho_max = 500.0f;
   adapter.clip = true;
   adapter.tolerance = 1e-3f;
   adapter.nx = work->data->model[0].nstates;  // Set number of states
